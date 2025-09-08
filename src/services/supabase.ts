@@ -4,6 +4,8 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 import { getConfig } from '@/utils/config';
+import { store } from '@/slices';
+import { setUser, setSession, signOut as signOutAction } from '@/slices/authSlice';
 import type { User, AuthState, LoginForm, RegisterForm, ResetPasswordForm, SupabaseAuthResponse } from '@/types';
 
 // Initialize Supabase client
@@ -267,6 +269,21 @@ class SupabaseService {
         error: error instanceof Error ? error.message : 'An unexpected error occurred',
       };
     }
+  }
+
+  // Initialize auth listener to sync with Redux store
+  initializeAuthListener() {
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const user = await this.getCurrentUser();
+        store.dispatch(setUser(user));
+        store.dispatch(setSession(session));
+      } else if (event === 'SIGNED_OUT') {
+        store.dispatch(signOutAction());
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        store.dispatch(setSession(session));
+      }
+    });
   }
 
   // Listen to auth state changes
